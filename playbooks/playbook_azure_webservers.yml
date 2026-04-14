@@ -122,4 +122,4 @@
           - "Installatie klaar op {{ inventory_hostname }}"
           - "Publiek web: http://{{ ansible_host }}"
           - "Tailscale IP: {{ tailscale_ip.stdout | default('n.v.t.') }}"
-          - "SSH via Pi: ssh -i ~/homelab/azure/id_rsa.pem adminuser@{{ tailscale_ip.stdout | default(ansible_host) }}"
+          - "SSH via Pi (check of de route naar key goed is): ssh -i /home/pi/homelab/id_rsa.pem adminuser@{{ tailscale_ip.stdout | default(ansible_host) }}"

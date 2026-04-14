@@ -410,8 +410,8 @@ EOF
     echo "=============================================="
     echo "  Azure Deploy Compleet!"
     echo "=============================================="
-    echo "  Webserver 0: http://\$IP_0"
-    echo "  Webserver 1: http://\$IP_1"
+    echo "  Webserver 0: http://$IP_0"
+    echo "  Webserver 1: http://$IP_1"
     echo "=============================================="
 }
 
