@@ -101,18 +101,20 @@ echo "  1) --full         Alles installen + Azure deployen"
 echo "  2) --azure-only   Alleen Azure deployen"
 echo "  3) --k3s-only     Alleen K3s apps deployen"
 echo "  4) --destroy-all  ALLES VERWIJDEREN (Azure + K3s + Config)"
+echo "  5) --express      Snel (ZONDER OS updates) - NIET AANBEVOLEN"
 echo ""
 
-if [ "$1" == "--full" ] || [ "$1" == "--azure-only" ] || [ "$1" == "--k3s-only" ] || [ "$1" == "--destroy-all" ]; then
+if [ "$1" == "--full" ] || [ "$1" == "--azure-only" ] || [ "$1" == "--k3s-only" ] || [ "$1" == "--destroy-all" ] || [ "$1" == "--express" ]; then
     MODUS=$1
 else
-    read -p "Keuze (1/2/3/4): " keuze < /dev/tty
+    read -p "Keuze (1/2/3/4/5): " keuze < /dev/tty
     case $keuze in
         1) MODUS="--full" ;;
         2) MODUS="--azure-only" ;;
         3) MODUS="--k3s-only" ;;
         4) MODUS="--destroy-all" ;;
-        *) log_fout "Ongeldige keuze. Gebruik 1, 2, 3 of 4." ;;
+        5) MODUS="--express" ;;
+        *) log_fout "Ongeldige keuze. Gebruik 1 t/m 5." ;;
     esac
 fi
 
@@ -129,9 +131,14 @@ fase_1() {
     echo "  FASE 1: Pi Basis Installatie"
     echo "=============================================="
 
-    log_stap "Systeem bijwerken..."
-    sudo apt-get update -qq && sudo apt-get upgrade -y -qq
-    log_ok "Systeem bijgewerkt"
+    if [ "$MODUS" == "--express" ]; then
+        log_stap "Systeem bijwerken overgeslagen (Express modus)..."
+        sudo apt-get update -qq
+    else
+        log_stap "Systeem bijwerken..."
+        sudo apt-get update -qq && sudo apt-get upgrade -y -qq
+        log_ok "Systeem bijgewerkt"
+    fi
 
     log_stap "Essentiële tools installeren (curl, jq, unzip)..."
     sudo apt-get install -y -qq curl jq unzip sshpass
@@ -400,7 +407,11 @@ EOF
 # HOOFDLOGICA: Welke fases uitvoeren?
 # ============================================================
 case $MODUS in
-    --full)
+    --full|--express)
+        if [ "$MODUS" == "--express" ]; then
+            echo -e "${ROOD}!! WAARSCHUWING: Express modus slaat beveiligingsupdates over !!${RESET}"
+            sleep 3
+        fi
         fase_1
         fase_2
         fase_3
