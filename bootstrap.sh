@@ -60,10 +60,24 @@ fase_0() {
     # 2. Controleer op Repository
     REPO_URL="https://github.com/SemDuvan/ke02-2526-KD-groep03-DBF_Infra.git"
     if [ ! -d "$HOMELAB_DIR/.git" ]; then
-        log_stap "Repository $HOMELAB_NAME niet gevonden op $HOMELAB_DIR. Bezig met clonen..."
-        mkdir -p "$HOMELAB_DIR"
-        git clone "$REPO_URL" "$HOMELAB_DIR"
-        log_ok "Repository binnengehaald."
+        log_stap "Repository $HOMELAB_NAME instellen op $HOMELAB_DIR..."
+        
+        if [ -d "$HOMELAB_DIR" ]; then
+            # Map bestaat al, maar is geen Git repo. We gaan hem omzetten.
+            log_stap "Bestaande map gevonden. Omzetten naar Git repository..."
+            cd "$HOMELAB_DIR"
+            git init -q
+            git remote add origin "$REPO_URL"
+            git fetch -q origin
+            git checkout -f main
+        else
+            # Map bestaat nog helemaal niet, gewoon clonen.
+            log_stap "Bezig met clonen van repository..."
+            mkdir -p "$HOMELAB_DIR"
+            git clone -q "$REPO_URL" "$HOMELAB_DIR"
+        fi
+        
+        log_ok "Repository succesvol gesynchroniseerd."
         
         # Herstarten vanaf de officiële repository zodat alle paden kloppen
         log_stap "Herstarten vanaf de nieuwe locatie ($HOMELAB_DIR)..."
