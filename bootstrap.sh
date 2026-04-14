@@ -83,6 +83,12 @@ fase_0() {
     if [[ "$(pwd)" != "$(realpath $HOMELAB_DIR)" ]]; then
         cd "$HOMELAB_DIR" || log_fout "Kon niet wisselen naar $HOMELAB_DIR"
     fi
+
+    # 4. Altijd de nieuwste code ophalen van GitHub (als we al in een git repo zijn)
+    if [ -d ".git" ]; then
+        log_stap "Nieuwste code ophalen van GitHub..."
+        git pull origin main -q || echo -e "${GEEL}Waarschuwing: Kon geen updates ophalen (mogelijk geen internet of lokale wijzigingen).${RESET}"
+    fi
 }
 
 # Voer Fase 0 ALTIJD uit bij het starten
