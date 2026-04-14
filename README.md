@@ -20,7 +20,7 @@ Dit project automatiseert de uitrol van een hybride cloud infrastructuur bestaan
     ```bash
     git clone https://github.com/SemDuvan/ke02-2526-KD-groep03-DBF_Infra.git
     ```
-2.  Kopieer het voorbeeld-credential bestand en vul de gegevens in:
+2.  Kopieer het voorbeeld-credential bestand en vul de gegevens in(of voer ze handmatig in):
     ```bash
     cp setup_env.sh.example setup_env.sh
     nano setup_env.sh
@@ -31,4 +31,4 @@ Dit project automatiseert de uitrol van een hybride cloud infrastructuur bestaan
     ```
 
 ---
-*Gerealiseerd door Groep 03 (2025-2026)*
+*Gerealiseerd door Groep 03 (2026)*
