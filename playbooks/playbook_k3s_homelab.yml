@@ -47,7 +47,7 @@
       ignore_errors: true
 
     - name: Bjw-s Helm repo toevoegen
-      command: helm repo add bjw-s https://bjw-s.github.io/helm-charts/
+      command: helm repo add bjw-s https://bjw-s.github.io/helm-charts
       register: bjw_repo_result
       until: bjw_repo_result.rc == 0
       retries: 3
