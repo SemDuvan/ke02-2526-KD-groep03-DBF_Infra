@@ -224,7 +224,8 @@ check_dependencies() {
     fi
     
     # Kubeconfig check & herstel (cruciaal voor k3s apps)
-    if [ -f /etc/rancher/k3s/k3s.yaml ]; then
+    log_stap "Kubeconfig controleren..."
+    if sudo [ -f /etc/rancher/k3s/k3s.yaml ]; then
         if [ ! -f "$HOME/.kube/config" ] || [ ! -r "$HOME/.kube/config" ]; then
             log_stap "Kubeconfig herstellen/instellen..."
             mkdir -p "$HOME/.kube"
@@ -232,7 +233,11 @@ check_dependencies() {
             sudo chown $(id -u):$(id -g) "$HOME/.kube/config"
             sudo chmod 600 "$HOME/.kube/config"
             log_ok "Kubeconfig is nu beschikbaar in $HOME/.kube/config"
+        else
+            log_ok "Kubeconfig is al aanwezig en leesbaar"
         fi
+    else
+        log_fout "Kritiek: K3s bron-configuratie niet gevonden op /etc/rancher/k3s/k3s.yaml. Is K3s wel correct geinstalleerd?"
     fi
     export KUBECONFIG="$HOME/.kube/config"
     log_ok "Basis afhankelijkheden zijn OK"
