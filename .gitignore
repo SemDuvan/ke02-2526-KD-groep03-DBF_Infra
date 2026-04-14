@@ -14,6 +14,9 @@ inventory_azure.yml
 # Misc / Clutter (Debugging and temporary files)
 misc/
 
+# Portfolio documenten
+portfolio_docs/
+
 # OS files
 .DS_Store
 Thumbs.db
