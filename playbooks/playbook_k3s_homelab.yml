@@ -105,16 +105,26 @@
       shell: kubectl create namespace homer --dry-run=client -o yaml | kubectl apply -f -
       environment:
         KUBECONFIG: "{{ kubeconfig }}"
+      tags: [homer, dashboard]
 
-    - name: Homer ConfigMap aanmaken
-      shell: kubectl apply -f ~/homelab/manifests/homer-config.yml
+    - name: Homer ConfigMap genereren en aanmaken
+      template:
+        src: "{{ playbook_dir }}/../manifests/homer-config.yml.j2"
+        dest: "/tmp/homer-config-rendered.yml"
+      become: false
+      tags: [homer, dashboard]
+
+    - name: Homer ConfigMap toepassen op k3s
+      shell: kubectl apply -f /tmp/homer-config-rendered.yml
       environment:
         KUBECONFIG: "{{ kubeconfig }}"
+      tags: [homer, dashboard]
 
     - name: Homer deployen
-      shell: kubectl apply -f ~/homelab/manifests/homer.yml
+      shell: kubectl apply -f "{{ playbook_dir }}/../manifests/homer.yml"
       environment:
         KUBECONFIG: "{{ kubeconfig }}"
+      tags: [homer, dashboard]
 
     - name: Overzicht van alle pods
       shell: kubectl get pods -A

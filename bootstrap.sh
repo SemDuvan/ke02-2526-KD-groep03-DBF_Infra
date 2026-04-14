@@ -368,12 +368,12 @@ all:
         webserver-0:
           ansible_host: $IP_0
           ansible_user: adminuser
-          ansible_ssh_private_key_file: \$HOMELAB_DIR/id_rsa.pem
+          ansible_ssh_private_key_file: $HOMELAB_DIR/id_rsa.pem
           ansible_ssh_common_args: '-o StrictHostKeyChecking=no'
         webserver-1:
           ansible_host: $IP_1
           ansible_user: adminuser
-          ansible_ssh_private_key_file: \$HOMELAB_DIR/id_rsa.pem
+          ansible_ssh_private_key_file: $HOMELAB_DIR/id_rsa.pem
           ansible_ssh_common_args: '-o StrictHostKeyChecking=no'
 EOF
     log_ok "Inventory bijgewerkt"
@@ -394,11 +394,17 @@ EOF
         done
     done
 
-    # --- Ansible playbook uitvoeren ---
     log_stap "Nginx installeren via Ansible..."
     ansible-playbook "$PLAYBOOKS_DIR/playbook_azure_webservers.yml" \
-        -i "$HOMELAB_DIR/inventory_azure.yml"
+        -i "$HOMELAB_DIR/inventory_azure.yml" \
+        --extra-vars "tailscale_authkey=$TAILSCALE_AUTHKEY"
     log_ok "Webservers geconfigureerd"
+
+    log_stap "Homer Dashboard bijwerken met nieuwe IPs..."
+    ansible-playbook "$PLAYBOOKS_DIR/playbook_k3s_homelab.yml" \
+        --tags homer \
+        --extra-vars "webserver_0_ip=$IP_0 webserver_1_ip=$IP_1"
+    log_ok "Dashboard bijgewerkt!"
 
     echo ""
     echo "=============================================="

@@ -73,12 +73,12 @@ all:
         webserver-0:
           ansible_host: $IP_0
           ansible_user: adminuser
-          ansible_ssh_private_key_file: ~/homelab/azure/id_rsa.pem
+          ansible_ssh_private_key_file: /home/pi/homelab/id_rsa.pem
           ansible_ssh_common_args: '-o StrictHostKeyChecking=no'
         webserver-1:
           ansible_host: $IP_1
           ansible_user: adminuser
-          ansible_ssh_private_key_file: ~/homelab/azure/id_rsa.pem
+          ansible_ssh_private_key_file: /home/pi/homelab/id_rsa.pem
           ansible_ssh_common_args: '-o StrictHostKeyChecking=no'
 EOF
 }
@@ -112,6 +112,12 @@ configure_azure() {
     ansible-playbook $PLAYBOOKS_DIR/playbook_azure_webservers.yml \
         -i $INVENTORY \
         --extra-vars "tailscale_authkey=$TAILSCALE_AUTHKEY"
+
+    echo -e "\n${BLAUW}[STAP] Dashboard verversen met nieuwe Azure IPs...${RESET}"
+    get_ips
+    ansible-playbook $PLAYBOOKS_DIR/playbook_k3s_homelab.yml \
+        --tags homer \
+        --extra-vars "webserver_0_ip=$IP_0 webserver_1_ip=$IP_1"
 }
 
 # --- Stap: K3s Apps ---
