@@ -19,16 +19,18 @@ Dit project automatiseert de uitrol van een hybride cloud infrastructuur bestaan
 1.  Clone deze repository:
     ```bash
     git clone https://github.com/SemDuvan/ke02-2526-KD-groep03-DBF_Infra.git
+    ```
     Of:
+    ```bash
     curl -sSL https://raw.githubusercontent.com/SemDuvan/ke02-2526-KD-groep03-DBF_Infra/main/bootstrap.sh | bash
 
     ```
-2.  Kopieer het voorbeeld-credential bestand en vul de gegevens in(of voer ze handmatig in):
+3.  Kopieer het voorbeeld-credential bestand en vul de gegevens in(of voer ze handmatig in):
     ```bash
     cp setup_env.sh.example setup_env.sh
     nano setup_env.sh
     ```
-3.  Draai het bootstrap script:
+4.  Draai het bootstrap script:
     ```bash
     bash bootstrap.sh
     ```
@@ -38,6 +40,13 @@ Dit project automatiseert de uitrol van een hybride cloud infrastructuur bestaan
 Om een voorspelbare en stabiele installatie te garanderen, maakt dit project gebruik vooral van specifieke versies van tools (zoals Terraform 1.8.5). 
 *   **Version Pinning**: Softwareversies zijn vastgezet in de scripts om compatibiliteitsproblemen bij toekomstige updates te voorkomen.
 *   **One-time Setup**: Het project is ontworpen als een statische 'Proof of Concept'.
+
+## Fixes
+Als jullie een probleem hebben met een raspberry pi dat te zwak is voor kubernetes (k3s) voer de fix_2gb.sh file uit
+```bash
+curl -sSL https://raw.githubusercontent.com/SemDuvan/ke02-2526-KD-groep03-DBF_Infra/main/fix_2gb.sh | bash
+```
+
 
 ---
 *Gerealiseerd door Groep 03 (2026)*
