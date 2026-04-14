@@ -1,0 +1,17 @@
+# Azure Secrets
+setup_env.sh
+*.pem
+
+# Terraform files
+.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.lock.hcl
+
+# Ansible files
+inventory_azure.yml
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini

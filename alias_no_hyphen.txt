@@ -1,0 +1,1 @@
+alias tfazure='cd ~/homelab/azure && source setup_env.sh'

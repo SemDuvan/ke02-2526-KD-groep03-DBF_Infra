@@ -1,0 +1,81 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: homer-config
+  namespace: homer
+data:
+  config.yml: |
+    ---
+    # Homepage configuration
+    # See https://github.com/b4bz/homer/blob/main/docs/configuration.md for more options
+    
+    title: "Homelab Dashboard"
+    subtitle: "Raspberry Pi & Azure Hybrid Cloud"
+    logo: "logo.png"
+    
+    # Message card
+    message:
+      title: "Systeem Status"
+      content: "Alle services op de Pi en in Azure zijn geconfigureerd via Ansible & Terraform."
+      type: "info"
+    
+    # Services links
+    services:
+      - name: "Local Homelab (Pi)"
+        icon: "fas fa-microchip"
+        items:
+          - name: "Portainer"
+            icon: "fas fa-docker"
+            subtitle: "Container Management"
+            tag: "K8s"
+            url: "http://192.168.1.133:30777"
+            target: "_blank"
+          - name: "Uptime Kuma"
+            icon: "fas fa-shield-alt"
+            subtitle: "Status Monitoring"
+            url: "http://192.168.1.133:30031"
+            target: "_blank"
+          - name: "Homer Edit"
+            icon: "fas fa-edit"
+            subtitle: "Dashboard Config"
+            url: "#"
+            target: "_self"
+
+      - name: "Monitoring (Metrics)"
+        icon: "fas fa-chart-line"
+        items:
+          - name: "Grafana"
+            icon: "fas fa-chart-area"
+            subtitle: "Dashboards & Grafieken"
+            url: "http://192.168.1.133:30030"
+            target: "_blank"
+          - name: "Prometheus"
+            icon: "fas fa-fire"
+            subtitle: "Metric Scraper"
+            url: "http://192.168.1.133:30090"
+            target: "_blank"
+
+      - name: "Azure Cloud Infrastructure"
+        icon: "fas fa-cloud"
+        items:
+          - name: "Webserver 0"
+            icon: "fas fa-server"
+            subtitle: "Nginx in Azure West-Europe"
+            tag: "Azure"
+            url: "http://20.16.160.197"
+            target: "_blank"
+          - name: "Webserver 1"
+            icon: "fas fa-server"
+            subtitle: "Nginx in Azure West-Europe"
+            tag: "Azure"
+            url: "http://20.16.217.1"
+            target: "_blank"
+    
+    # Links card
+    links:
+      - name: "Tailscale Console"
+        icon: "fas fa-vpn-network"
+        url: "https://login.tailscale.com/admin/machines"
+      - name: "Azure Portal"
+        icon: "fab fa-microsoft"
+        url: "https://portal.azure.com"

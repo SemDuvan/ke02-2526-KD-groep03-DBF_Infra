@@ -1,0 +1,352 @@
+#!/bin/bash
+# ============================================================
+# bootstrap.sh
+# Master bootstrap script voor het DBF Homelab
+#
+# Gebruik:
+#   ./bootstrap.sh --full         Alles installen (verse Pi)
+#   ./bootstrap.sh --azure-only   Alleen Azure deployen
+#   ./bootstrap.sh --k3s-only     Alleen K3s apps deployen
+# ============================================================
+
+set -e
+
+# --- Kleuren voor output ---
+GROEN='\033[0;32m'
+GEEL='\033[1;33m'
+ROOD='\033[0;31m'
+BLAUW='\033[0;34m'
+RESET='\033[0m'
+
+HOMELAB_DIR=~/homelab/azure
+
+log_stap()  { echo -e "\n${BLAUW}[STAP]${RESET} $1"; }
+log_ok()    { echo -e "${GROEN}[OK]${RESET} $1"; }
+log_skip()  { echo -e "${GEEL}[SKIP]${RESET} $1 (al geinstalleerd)"; }
+log_fout()  { echo -e "${ROOD}[FOUT]${RESET} $1"; exit 1; }
+
+# ============================================================
+# WELKOMSTSCHERM
+# ============================================================
+clear
+echo "=============================================="
+echo "  DBF Homelab - Master Bootstrap Script"
+echo "=============================================="
+echo ""
+echo "Kies een modus:"
+echo "  1) --full         Alles installen + Azure deployen"
+echo "  2) --azure-only   Alleen Azure deployen"
+echo "  3) --k3s-only     Alleen K3s apps deployen"
+echo ""
+
+if [ "$1" == "--full" ] || [ "$1" == "--azure-only" ] || [ "$1" == "--k3s-only" ]; then
+    MODUS=$1
+else
+    read -p "Keuze (1/2/3): " keuze
+    case $keuze in
+        1) MODUS="--full" ;;
+        2) MODUS="--azure-only" ;;
+        3) MODUS="--k3s-only" ;;
+        *) log_fout "Ongeldige keuze. Gebruik 1, 2 of 3." ;;
+    esac
+fi
+
+echo ""
+echo "Gekozen modus: $MODUS"
+echo "----------------------------------------------"
+
+# ============================================================
+# FASE 1: PI BASIS INSTALLATIE
+# ============================================================
+fase_1() {
+    echo ""
+    echo "=============================================="
+    echo "  FASE 1: Pi Basis Installatie"
+    echo "=============================================="
+
+    log_stap "Systeem bijwerken..."
+    sudo apt-get update -qq && sudo apt-get upgrade -y -qq
+    log_ok "Systeem bijgewerkt"
+
+    log_stap "Essentiële tools installeren (curl, git, jq, unzip)..."
+    sudo apt-get install -y -qq curl git jq unzip sshpass
+    log_ok "Basis tools geinstalleerd"
+
+    # --- Ansible ---
+    log_stap "Ansible controleren..."
+    if ! command -v ansible &>/dev/null; then
+        sudo apt-get install -y -qq ansible
+        log_ok "Ansible geinstalleerd ($(ansible --version | head -1))"
+    else
+        log_skip "Ansible"
+    fi
+
+    # --- Terraform (ARM32 versie voor Pi) ---
+    log_stap "Terraform controleren..."
+    if ! command -v terraform &>/dev/null; then
+        TF_VERSION="1.8.5"
+        TF_ARCH="linux_arm"
+        curl -sLO "https://releases.hashicorp.com/terraform/${TF_VERSION}/terraform_${TF_VERSION}_${TF_ARCH}.zip"
+        unzip -o "terraform_${TF_VERSION}_${TF_ARCH}.zip" -d /tmp/
+        sudo mv /tmp/terraform /usr/local/bin/terraform
+        sudo chmod +x /usr/local/bin/terraform
+        rm "terraform_${TF_VERSION}_${TF_ARCH}.zip"
+        log_ok "Terraform geinstalleerd ($(terraform version | head -1))"
+    else
+        log_skip "Terraform"
+    fi
+
+    # --- Tailscale ---
+    log_stap "Tailscale controleren..."
+    if ! command -v tailscale &>/dev/null; then
+        curl -fsSL https://tailscale.com/install.sh | sh
+        log_ok "Tailscale geinstalleerd"
+        echo ""
+        echo "----------------------------------------------"
+        echo "Tailscale instellen. Kies een methode:"
+        echo "  1) Ik log in met een link (eigen account)"
+        echo "  2) Ik gebruik een Auth Key (gekregen van beheerder)"
+        echo "  3) Tailscale nu overslaan (doe ik later zelf)"
+        read -p "Keuze (1/2/3): " ts_keuze
+        case $ts_keuze in
+            1)
+                sudo tailscale up
+                log_ok "Tailscale verbonden via account"
+                ;;
+            2)
+                read -p "Plak hier je Auth Key: " ts_key
+                sudo tailscale up --authkey="$ts_key"
+                log_ok "Tailscale verbonden via Auth Key"
+                ;;
+            3)
+                log_skip "Tailscale (handmatig instellen via: sudo tailscale up)"
+                ;;
+        esac
+    else
+        log_skip "Tailscale"
+    fi
+}
+
+# ============================================================
+# FASE 2: K3S + HELM
+# ============================================================
+fase_2() {
+    echo ""
+    echo "=============================================="
+    echo "  FASE 2: K3s Cluster Opzetten"
+    echo "=============================================="
+
+    # --- K3s ---
+    log_stap "K3s controleren..."
+    if ! command -v k3s &>/dev/null; then
+        curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="--disable traefik --disable servicelb" sh -
+        log_ok "K3s geinstalleerd"
+        sleep 10  # Even wachten tot K3s volledig opstart
+    else
+        log_skip "K3s"
+    fi
+
+    log_stap "Kubeconfig instellen..."
+    mkdir -p ~/.kube
+    sudo cp /etc/rancher/k3s/k3s.yaml ~/.kube/config
+    sudo chown $(id -u):$(id -g) ~/.kube/config
+    sudo chmod 600 ~/.kube/config
+    export KUBECONFIG=~/.kube/config
+    log_ok "Kubeconfig ingesteld"
+
+    # --- Helm ---
+    log_stap "Helm controleren..."
+    if ! command -v helm &>/dev/null; then
+        curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+        log_ok "Helm geinstalleerd ($(helm version --short))"
+    else
+        log_skip "Helm"
+    fi
+
+    # --- Aliases toevoegen ---
+    log_stap "Homelab aliases instellen..."
+    if ! grep -q "=== Homelab Aliases ===" ~/.bashrc; then
+        cat >> ~/.bashrc << 'EOF'
+
+# === Homelab Aliases ===
+alias tfazure='cd ~/homelab/azure && source setup_env.sh'
+alias k3sdeploy='ansible-playbook ~/homelab/azure/playbook_k3s_homelab.yml'
+alias azuredeploy='ansible-playbook ~/homelab/azure/playbook_azure_webservers.yml -i ~/homelab/azure/inventory_azure.yml'
+alias deployall='bash ~/homelab/azure/deploy_all.sh'
+alias destroyall='bash ~/homelab/azure/destroy_all.sh'
+EOF
+        log_ok "Aliases toegevoegd aan .bashrc"
+    else
+        log_skip "Aliases (staan al in .bashrc)"
+    fi
+}
+
+# ============================================================
+# FASE 3: K3S APPS DEPLOYEN
+# ============================================================
+fase_3() {
+    echo ""
+    echo "=============================================="
+    echo "  FASE 3: K3s Apps Deployen"
+    echo "  (Portainer, Homer, Grafana, Uptime Kuma)"
+    echo "=============================================="
+
+    if [ ! -f "$HOMELAB_DIR/playbook_k3s_homelab.yml" ]; then
+        log_fout "Bestand niet gevonden: $HOMELAB_DIR/playbook_k3s_homelab.yml"
+    fi
+
+    export KUBECONFIG=~/.kube/config
+    ansible-playbook "$HOMELAB_DIR/playbook_k3s_homelab.yml"
+    log_ok "K3s apps succesvol gedeployed"
+}
+
+# ============================================================
+# FASE 4: AZURE DEPLOYEN
+# ============================================================
+fase_4() {
+    echo ""
+    echo "=============================================="
+    echo "  FASE 4: Azure Cloud Deployen"
+    echo "=============================================="
+
+    # --- Credentials keuzescherm ---
+    echo ""
+    echo "Hoe wil je je Azure credentials laden?"
+    echo "  1) Uit een bestaand .sh bestand"
+    echo "  2) Handmatig invoeren"
+    echo ""
+    read -p "Keuze (1/2): " cred_keuze
+
+    if [ "$cred_keuze" == "1" ]; then
+        read -p "Volledig pad naar je credentials bestand (bijv. ~/homelab/azure/setup_env.sh): " cred_pad
+        cred_pad="${cred_pad/#\~/$HOME}"  # ~ omzetten naar echte path
+        if [ ! -f "$cred_pad" ]; then
+            log_fout "Bestand niet gevonden: $cred_pad"
+        fi
+        source "$cred_pad"
+        log_ok "Credentials geladen uit: $cred_pad"
+
+    elif [ "$cred_keuze" == "2" ]; then
+        echo "Voer je Azure credentials in (input wordt niet getoond):"
+        read -sp "  ARM_CLIENT_ID:       " ARM_CLIENT_ID;       echo ""
+        read -sp "  ARM_CLIENT_SECRET:   " ARM_CLIENT_SECRET;   echo ""
+        read -sp "  ARM_TENANT_ID:       " ARM_TENANT_ID;       echo ""
+        read -sp "  ARM_SUBSCRIPTION_ID: " ARM_SUBSCRIPTION_ID; echo ""
+        export ARM_CLIENT_ID ARM_CLIENT_SECRET ARM_TENANT_ID ARM_SUBSCRIPTION_ID
+        log_ok "Credentials handmatig ingesteld"
+    else
+        log_fout "Ongeldige keuze voor credentials"
+    fi
+
+    # --- Tailscale Auth Key ---
+    echo ""
+    echo "Tailscale Auth Key voor Azure VMs:"
+    echo "  1) Laad uit omgevingsvariabele (TAILSCALE_AUTHKEY)"
+    echo "  2) Handmatig invoeren"
+    read -p "Keuze (1/2): " ts_keuze
+    if [ "$ts_keuze" == "1" ]; then
+        if [ -z "$TAILSCALE_AUTHKEY" ]; then
+            log_fout "TAILSCALE_AUTHKEY is niet ingesteld als omgevingsvariabele."
+        fi
+        log_ok "Tailscale auth key geladen uit omgevingsvariabele."
+    else
+        read -sp "  Tailscale Auth Key: " TAILSCALE_AUTHKEY
+        echo ""
+        log_ok "Tailscale auth key handmatig ingesteld."
+    fi
+
+    # --- Terraform init + apply ---
+    log_stap "Naar homelab map gaan..."
+    cd "$HOMELAB_DIR"
+
+    log_stap "Terraform initialiseren..."
+    rm -f .terraform.lock.hcl
+    terraform init -upgrade
+    log_ok "Terraform geinitialiseerd"
+
+    log_stap "Terraform apply uitvoeren..."
+    terraform apply -auto-approve
+    log_ok "Infrastructuur aangemaakt in Azure"
+
+    # --- IPs ophalen en inventory bijwerken ---
+    log_stap "IP-adressen ophalen uit Terraform output..."
+    IP_0=$(terraform output -raw webserver_0_ip)
+    IP_1=$(terraform output -raw webserver_1_ip)
+    log_ok "Webserver 0: $IP_0"
+    log_ok "Webserver 1: $IP_1"
+
+    log_stap "Ansible inventory bijwerken..."
+    cat > "$HOMELAB_DIR/inventory_azure.yml" << EOF
+# inventory_azure.yml
+# Automatisch gegenereerd door bootstrap.sh op $(date)
+all:
+  children:
+    azure_webservers:
+      hosts:
+        webserver-0:
+          ansible_host: $IP_0
+          ansible_user: adminuser
+          ansible_ssh_private_key_file: ~/homelab/azure/id_rsa.pem
+          ansible_ssh_common_args: '-o StrictHostKeyChecking=no'
+        webserver-1:
+          ansible_host: $IP_1
+          ansible_user: adminuser
+          ansible_ssh_private_key_file: ~/homelab/azure/id_rsa.pem
+          ansible_ssh_common_args: '-o StrictHostKeyChecking=no'
+EOF
+    log_ok "Inventory bijgewerkt"
+
+    # --- Wachten tot VMs bereikbaar zijn ---
+    log_stap "Wachten tot Azure VMs bereikbaar zijn (max 3 min)..."
+    for IP in $IP_0 $IP_1; do
+        echo -n "   Wachten op $IP "
+        for i in $(seq 1 36); do
+            if ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 \
+               -i "$HOMELAB_DIR/id_rsa.pem" adminuser@$IP \
+               "echo ok" &>/dev/null; then
+                echo " - Bereikbaar!"
+                break
+            fi
+            echo -n "."
+            sleep 5
+        done
+    done
+
+    # --- Ansible playbook uitvoeren ---
+    log_stap "Nginx installeren via Ansible..."
+    ansible-playbook "$HOMELAB_DIR/playbook_azure_webservers.yml" \
+        -i "$HOMELAB_DIR/inventory_azure.yml"
+    log_ok "Webservers geconfigureerd"
+
+    echo ""
+    echo "=============================================="
+    echo "  Azure Deploy Compleet!"
+    echo "=============================================="
+    echo "  Webserver 0: http://$IP_0"
+    echo "  Webserver 1: http://$IP_1"
+    echo "=============================================="
+}
+
+# ============================================================
+# HOOFDLOGICA: Welke fases uitvoeren?
+# ============================================================
+case $MODUS in
+    --full)
+        fase_1
+        fase_2
+        fase_3
+        fase_4
+        ;;
+    --azure-only)
+        fase_4
+        ;;
+    --k3s-only)
+        fase_3
+        ;;
+esac
+
+echo ""
+echo "=============================================="
+echo "  Bootstrap voltooid!"
+echo "  Herstart terminal of: source ~/.bashrc"
+echo "=============================================="

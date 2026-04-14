@@ -1,0 +1,125 @@
+---
+# ============================================================
+# playbook_azure_webservers.yml
+# Doel: Nginx installeren en configureren op Azure VM's
+# Gebruik: ansible-playbook playbook_azure_webservers.yml -i inventory_azure.yml
+# Vereiste: terraform apply is al uitgevoerd (IPs bekend)
+# ============================================================
+
+- name: Azure Webservers configureren
+  hosts: azure_webservers
+  become: true
+  vars:
+    webserver_root: /var/www/html
+    server_name: "{{ inventory_hostname }}"
+
+  tasks:
+
+    # --- Stap 1: Systeem bijwerken ---
+    - name: APT pakketlijst bijwerken
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    # --- Stap 2: Nginx installeren ---
+    - name: Nginx installeren
+      apt:
+        name: nginx
+        state: present
+
+    - name: Nginx starten en activeren bij boot
+      systemd:
+        name: nginx
+        state: started
+        enabled: true
+
+    # --- Stap 3: Standaard webpagina neerzetten ---
+    - name: Standaard index.html aanmaken
+      copy:
+        dest: "{{ webserver_root }}/index.html"
+        content: |
+          <!DOCTYPE html>
+          <html lang="nl">
+          <head>
+              <meta charset="UTF-8">
+              <title>Homelab - {{ inventory_hostname }}</title>
+              <style>
+                  body { font-family: Arial, sans-serif; background: #1a1a2e; color: #eee; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+                  .box { text-align: center; padding: 40px; background: #16213e; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
+                  h1 { color: #0f3460; color: #e94560; }
+                  p { color: #aaa; }
+              </style>
+          </head>
+          <body>
+              <div class="box">
+                  <h1>Webserver Online</h1>
+                  <p>Host: <strong>{{ inventory_hostname }}</strong></p>
+                  <p>Ingericht via Ansible + Terraform</p>
+              </div>
+          </body>
+          </html>
+        mode: '0644'
+
+    # --- Stap 4: UFW Firewall instellen op de VM zelf ---
+    - name: UFW installeren
+      apt:
+        name: ufw
+        state: present
+
+    - name: SSH toestaan via UFW
+      ufw:
+        rule: allow
+        port: "22"
+        proto: tcp
+
+    - name: HTTP toestaan via UFW
+      ufw:
+        rule: allow
+        port: "80"
+        proto: tcp
+
+    - name: HTTPS toestaan via UFW
+      ufw:
+        rule: allow
+        port: "443"
+        proto: tcp
+
+    - name: UFW inschakelen
+      ufw:
+        state: enabled
+        policy: deny
+
+    # --- Stap 5: Tailscale installeren ---
+    - name: Tailscale installeren
+      shell: curl -fsSL https://tailscale.com/install.sh | sh
+      args:
+        creates: /usr/sbin/tailscaled  # Idempotent: skip als al geinstalleerd
+
+    - name: Tailscale verbinden met auth key
+      shell: tailscale up --authkey={{ tailscale_authkey }} --accept-routes --hostname={{ inventory_hostname }} --accept-dns=false
+      become: true
+      register: tailscale_result
+      ignore_errors: true
+
+    - name: Tailscale IP ophalen
+      shell: tailscale ip -4
+      register: tailscale_ip
+      ignore_errors: true
+
+    # --- Stap 5: Verificatie ---
+    - name: Controleer of Nginx draait
+      command: systemctl is-active nginx
+      register: nginx_status
+
+    - name: Toon Nginx status
+      debug:
+        msg: "Nginx status op {{ inventory_hostname }}: {{ nginx_status.stdout }}"
+
+    # --- Stap 6: Eindrapport ---
+    - name: Webserver bereikbaar op
+      debug:
+        msg:
+          - "Installatie klaar op {{ inventory_hostname }}"
+          - "Publiek web: http://{{ ansible_host }}"
+          - "Tailscale IP: {{ tailscale_ip.stdout | default('n.v.t.') }}"
+          - "SSH via Pi: ssh -i ~/homelab/azure/id_rsa.pem adminuser@{{ tailscale_ip.stdout | default(ansible_host) }}"
