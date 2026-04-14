@@ -6,9 +6,19 @@
 
 set -e  # Stop bij een fout
 
-AZURE_DIR=~/homelab
-PLAYBOOKS_DIR=$AZURE_DIR/playbooks
-INVENTORY=$AZURE_DIR/inventory_azure.yml
+# --- Instellingen & Config Laden ---
+CONFIG_FILE="$HOME/.homelab_config"
+if [ -f "$CONFIG_FILE" ]; then
+    source "$CONFIG_FILE"
+    HOMELAB_DIR="$HOME/$HOMELAB_NAME"
+else
+    # Fallback naar standaard als config ontbreekt
+    HOMELAB_NAME="homelab"
+    HOMELAB_DIR="$HOME/$HOMELAB_NAME"
+fi
+
+PLAYBOOKS_DIR="$HOMELAB_DIR/playbooks"
+INVENTORY="$HOMELAB_DIR/inventory_azure.yml"
 
 # Kleuren
 GROEN='\033[0;32m'

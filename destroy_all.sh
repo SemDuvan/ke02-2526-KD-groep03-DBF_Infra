@@ -1,86 +1,100 @@
 #!/bin/bash
 # ============================================================
 # destroy_all.sh
-# Doel: Azure infrastructuur en/of K3s apps selectief verwijderen
+# Doel: Alles verwijderen (Azure + K3s + Config)
 # ============================================================
 
-AZURE_DIR=~/homelab/azure
-MANIFEST_DIR=~/homelab/manifests
+# --- Instellingen & Config Laden ---
+CONFIG_FILE="$HOME/.homelab_config"
+if [ -f "$CONFIG_FILE" ]; then
+    source "$CONFIG_FILE"
+    HOMELAB_DIR="$HOME/$HOMELAB_NAME"
+else
+    # Fallback naar standaard als config ontbreekt
+    HOMELAB_NAME="homelab"
+    HOMELAB_DIR="$HOME/$HOMELAB_NAME"
+fi
 
-# Kleuren voor output
+PLAYBOOKS_DIR="$HOMELAB_DIR/playbooks"
+MANIFESTS_DIR="$HOMELAB_DIR/manifests"
+KUBECONFIG=~/.kube/config
+
+# Kleuren
 ROOD='\033[0;31m'
 GEEL='\033[1;33m'
+BLAUW='\033[0;34m'
 RESET='\033[0m'
 
-echo "================================================"
-echo "Homelab Destroy Pipeline"
-echo "================================================"
-echo "Kies wat je wilt verwijderen:"
-echo "  1) Alleen K3s apps (Homer, Portainer, etc.)"
-echo "  2) Alleen Azure infrastructuur (VMs, Netwerk)"
-echo "  3) ALLES verwijderen (Azure + K3s)"
-echo ""
-read -p "Keuze (1/2/3): " keuze
+echo "=============================================="
+echo "  HOMELAB DESTROYER - PROJECT: $HOMELAB_NAME"
+echo "=============================================="
+echo -e "${ROOD}WAARSCHUWING: Dit gaat ALLES verwijderen!${RESET}"
+read -p "Weet je dit zeker? [j/N]: " bevestig
+if [[ ! "$bevestig" =~ ^[jJ]$ ]]; then
+    echo "Afgebroken."
+    exit 0
+fi
 
 # --- Functie: Azure Destroy ---
 destroy_azure() {
-    echo ""
-    echo "${ROOD}STAP 1: Azure infrastructuur vernietigen...${RESET}"
-    if [ -f "$AZURE_DIR/setup_env.sh" ]; then
-        source "$AZURE_DIR/setup_env.sh"
-        cd "$AZURE_DIR"
+    echo -e "\n${ROOD}[STAP] Azure infrastructuur vernietigen...${RESET}"
+    if [ -f "$HOMELAB_DIR/setup_env.sh" ]; then
+        source "$HOMELAB_DIR/setup_env.sh"
+        cd "$HOMELAB_DIR"
         terraform destroy -auto-approve
     else
-        echo "Fout: $AZURE_DIR/setup_env.sh niet gevonden."
-        exit 1
+        echo "   Skip: setup_env.sh niet gevonden, infrastructure mogelijk al weg."
     fi
 }
 
-# --- Functie: K3s Destroy ---
-destroy_k3s() {
-    echo ""
-    echo "${GEEL}STAP 2: K3s applicaties verwijderen...${RESET}"
-    export KUBECONFIG=~/.kube/config
-    # Forceer gebruik van de juiste K3s kubectl om 'Exec format error' te voorkomen
-    KUBECTL=/usr/local/bin/kubectl
+# --- Functie: K3s Apps opruimen ---
+destroy_k3s_apps() {
+    echo -e "\n${GEEL}[STAP] K3s applicaties verwijderen...${RESET}"
+    export KUBECONFIG=$KUBECONFIG
     
-    # Namespaces verwijderen
-    namespaces=("portainer" "monitoring" "homer")
+    namespaces=("portainer" "monitoring" "homer" "uptime-kuma")
     for ns in "${namespaces[@]}"; do
-        if $KUBECTL get namespace "$ns" &>/dev/null; then
+        if kubectl get namespace "$ns" &>/dev/null; then
             echo "   Verwijderen namespace: $ns..."
-            $KUBECTL delete namespace "$ns" --timeout=60s
-        else
-            echo "   Namespace $ns bestaat niet, overslaan."
+            kubectl delete namespace "$ns" --timeout=60s --ignore-not-found
         fi
     done
-
-    # Losse manifests verwijderen
-    if [ -d "$MANIFEST_DIR" ]; then
-        echo "   STAP 3: Losse manifests verwijderen..."
-        $KUBECTL delete -f "$MANIFEST_DIR/uptime-kuma.yml" --ignore-not-found
-    fi
 }
 
-# --- Hoofdlogica ---
-case $keuze in
-    1)
-        destroy_k3s
-        ;;
-    2)
-        destroy_azure
-        ;;
-    3)
-        destroy_k3s
-        destroy_azure
-        ;;
-    *)
-        echo "Ongeldige keuze. Script afgebroken."
-        exit 1
-        ;;
-esac
+# --- Functie: Hard Reset ---
+hard_reset() {
+    echo -e "\n${ROOD}[STAP] HARD RESET: Project volledig wissen...${RESET}"
+    
+    # 1. K3s deinstalleren
+    if [ -f "/usr/local/bin/k3s-uninstall.sh" ]; then
+        echo "   K3s Cluster verwijderen..."
+        sudo /usr/local/bin/k3s-uninstall.sh
+    fi
+
+    # 2. Aliassen verwijderen uit .bashrc
+    echo "   Aliassen verwijderen uit .bashrc..."
+    sed -i '/# === Homelab Aliases ===/,/EOF/d' ~/.bashrc
+    
+    # 3. Config en Projectmap verwijderen
+    echo "   Configuratie en projectmap verwijderen..."
+    rm -f "$CONFIG_FILE"
+    
+    # Let op: we verwijderen de map waar we nu in staan pas als laatste
+    cd ~
+    rm -rf "$HOMELAB_DIR"
+    
+    echo -e "\n${ROOD}Project $HOMELAB_NAME is volledig verwijderd.${RESET}"
+    echo "Je kunt nu opnieuw beginnen met de bootstrap installer."
+}
+
+# Uitvoering
+destroy_k3s_apps
+destroy_azure
 
 echo ""
-echo "================================================"
-echo "Vernietiging voltooid!"
-echo "================================================"
+read -p "Wil je ook K3s en de projectmap zelf verwijderen (Hard Reset)? [j/N]: " reset_keuze
+if [[ "$reset_keuze" =~ ^[jJ]$ ]]; then
+    hard_reset
+else
+    echo -e "\n${GEEL}Schoonmaak voltooid. De projectmap is behouden.${RESET}"
+fi

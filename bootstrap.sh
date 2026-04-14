@@ -18,14 +18,66 @@ ROOD='\033[0;31m'
 BLAUW='\033[0;34m'
 RESET='\033[0m'
 
-HOMELAB_DIR=~/homelab
-PLAYBOOKS_DIR=$HOMELAB_DIR/playbooks
-MANIFESTS_DIR=$HOMELAB_DIR/manifests
+# --- Instellingen & Config ---
+CONFIG_FILE="$HOME/.homelab_config"
+
+load_config() {
+    if [ -f "$CONFIG_FILE" ]; then
+        source "$CONFIG_FILE"
+    else
+        # Eerste keer draaien: Vraag de gebruiker om een naam
+        echo -e "${GEEL}Welkom bij de DBF Homelab Installer!${RESET}"
+        read -p "Hoe wil je de projectmap noemen? [Standaard: homelab]: " chosen_name
+        HOMELAB_NAME=${chosen_name:-homelab}
+        echo "HOMELAB_NAME=$HOMELAB_NAME" > "$CONFIG_FILE"
+        export HOMELAB_NAME
+    fi
+    HOMELAB_DIR="$HOME/$HOMELAB_NAME"
+    PLAYBOOKS_DIR="$HOMELAB_DIR/playbooks"
+    MANIFESTS_DIR="$HOMELAB_DIR/manifests"
+}
+
+load_config
 
 log_stap()  { echo -e "\n${BLAUW}[STAP]${RESET} $1"; }
 log_ok()    { echo -e "${GROEN}[OK]${RESET} $1"; }
 log_skip()  { echo -e "${GEEL}[SKIP]${RESET} $1 (al geinstalleerd)"; }
 log_fout()  { echo -e "${ROOD}[FOUT]${RESET} $1"; exit 1; }
+
+# ============================================================
+# FASE 0: SMART INSTALLER LOGICA
+# ============================================================
+fase_0() {
+    log_stap "Pre-flight checks uitvoeren..."
+
+    # 1. Controleer op Git
+    if ! command -v git &>/dev/null; then
+        log_stap "Git niet gevonden. Bezig met installeren..."
+        sudo apt-get update -qq && sudo apt-get install -y -qq git
+        log_ok "Git succesvol geinstalleerd."
+    fi
+
+    # 2. Controleer op Repository
+    REPO_URL="https://github.com/SemDuvan/ke02-2526-KD-groep03-DBF_Infra.git"
+    if [ ! -d "$HOMELAB_DIR/.git" ]; then
+        log_stap "Repository $HOMELAB_NAME niet gevonden op $HOMELAB_DIR. Bezig met clonen..."
+        mkdir -p "$HOMELAB_DIR"
+        git clone "$REPO_URL" "$HOMELAB_DIR"
+        log_ok "Repository binnengehaald."
+        
+        # Herstarten vanaf de officiële repository zodat alle paden kloppen
+        log_stap "Herstarten vanaf de nieuwe locatie ($HOMELAB_DIR)..."
+        exec bash "$HOMELAB_DIR/bootstrap.sh" "$@"
+    fi
+
+    # 3. Indien we al in de repo zijn maar niet in de juiste map, wissel van map
+    if [[ "$(pwd)" != "$(realpath $HOMELAB_DIR)" ]]; then
+        cd "$HOMELAB_DIR" || log_fout "Kon niet wisselen naar $HOMELAB_DIR"
+    fi
+}
+
+# Voer Fase 0 ALTIJD uit bij het starten
+fase_0 "$@"
 
 # ============================================================
 # WELKOMSTSCHERM
@@ -39,17 +91,19 @@ echo "Kies een modus:"
 echo "  1) --full         Alles installen + Azure deployen"
 echo "  2) --azure-only   Alleen Azure deployen"
 echo "  3) --k3s-only     Alleen K3s apps deployen"
+echo "  4) --destroy-all  ALLES VERWIJDEREN (Azure + K3s + Config)"
 echo ""
 
-if [ "$1" == "--full" ] || [ "$1" == "--azure-only" ] || [ "$1" == "--k3s-only" ]; then
+if [ "$1" == "--full" ] || [ "$1" == "--azure-only" ] || [ "$1" == "--k3s-only" ] || [ "$1" == "--destroy-all" ]; then
     MODUS=$1
 else
-    read -p "Keuze (1/2/3): " keuze
+    read -p "Keuze (1/2/3/4): " keuze
     case $keuze in
         1) MODUS="--full" ;;
         2) MODUS="--azure-only" ;;
         3) MODUS="--k3s-only" ;;
-        *) log_fout "Ongeldige keuze. Gebruik 1, 2 of 3." ;;
+        4) MODUS="--destroy-all" ;;
+        *) log_fout "Ongeldige keuze. Gebruik 1, 2, 3 of 4." ;;
     esac
 fi
 
@@ -70,8 +124,8 @@ fase_1() {
     sudo apt-get update -qq && sudo apt-get upgrade -y -qq
     log_ok "Systeem bijgewerkt"
 
-    log_stap "Essentiële tools installeren (curl, git, jq, unzip)..."
-    sudo apt-get install -y -qq curl git jq unzip sshpass
+    log_stap "Essentiële tools installeren (curl, jq, unzip)..."
+    sudo apt-get install -y -qq curl jq unzip sshpass
     log_ok "Basis tools geinstalleerd"
 
     # --- Ansible ---
@@ -168,14 +222,16 @@ fase_2() {
     # --- Aliases toevoegen ---
     log_stap "Homelab aliases instellen..."
     if ! grep -q "=== Homelab Aliases ===" ~/.bashrc; then
-        cat >> ~/.bashrc << 'EOF'
+        cat >> ~/.bashrc << EOF
 
 # === Homelab Aliases ===
-alias tfazure='cd ~/homelab && source setup_env.sh'
-alias k3sdeploy='ansible-playbook ~/homelab/playbooks/playbook_k3s_homelab.yml'
-alias azuredeploy='ansible-playbook ~/homelab/playbooks/playbook_azure_webservers.yml -i ~/homelab/inventory_azure.yml'
-alias deployall='bash ~/homelab/deploy_all.sh'
-alias destroyall='bash ~/homelab/destroy_all.sh'
+export HOMELAB_NAME="$HOMELAB_NAME"
+export HOMELAB_DIR="$HOMELAB_DIR"
+alias tfazure='cd $HOMELAB_DIR && source setup_env.sh'
+alias k3sdeploy='ansible-playbook $HOMELAB_DIR/playbooks/playbook_k3s_homelab.yml'
+alias azuredeploy='ansible-playbook $HOMELAB_DIR/playbooks/playbook_azure_webservers.yml -i $HOMELAB_DIR/inventory_azure.yml'
+alias deployall='bash $HOMELAB_DIR/deploy_all.sh'
+alias destroyall='bash $HOMELAB_DIR/destroy_all.sh'
 EOF
         log_ok "Aliases toegevoegd aan .bashrc"
     else
@@ -344,6 +400,9 @@ case $MODUS in
         ;;
     --k3s-only)
         fase_3
+        ;;
+    --destroy-all)
+        bash "$HOMELAB_DIR/destroy_all.sh"
         ;;
 esac
 

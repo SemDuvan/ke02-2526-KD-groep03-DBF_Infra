@@ -30,5 +30,10 @@ Dit project automatiseert de uitrol van een hybride cloud infrastructuur bestaan
     bash bootstrap.sh
     ```
 
+## Stabiliteit & Versiebeheer
+Om een voorspelbare en stabiele installatie te garanderen, maakt dit project gebruik vooral van specifieke versies van tools (zoals Terraform 1.8.5). 
+*   **Version Pinning**: Softwareversies zijn vastgezet in de scripts om compatibiliteitsproblemen bij toekomstige updates te voorkomen.
+*   **One-time Setup**: Het project is ontworpen als een statische 'Proof of Concept'.
+
 ---
 *Gerealiseerd door Groep 03 (2026)*
