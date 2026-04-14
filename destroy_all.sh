@@ -29,7 +29,7 @@ echo "=============================================="
 echo "  HOMELAB DESTROYER - PROJECT: $HOMELAB_NAME"
 echo "=============================================="
 echo -e "${ROOD}WAARSCHUWING: Dit gaat ALLES verwijderen!${RESET}"
-read -p "Weet je dit zeker? [j/N]: " bevestig
+read -p "Weet je dit zeker? [j/N]: " bevestig < /dev/tty
 if [[ ! "$bevestig" =~ ^[jJ]$ ]]; then
     echo "Afgebroken."
     exit 0
@@ -92,7 +92,7 @@ destroy_k3s_apps
 destroy_azure
 
 echo ""
-read -p "Wil je ook K3s en de projectmap zelf verwijderen (Hard Reset)? [j/N]: " reset_keuze
+read -p "Wil je ook K3s en de projectmap zelf verwijderen (Hard Reset)? [j/N]: " reset_keuze < /dev/tty
 if [[ "$reset_keuze" =~ ^[jJ]$ ]]; then
     hard_reset
 else

@@ -2,11 +2,6 @@
 # ============================================================
 # bootstrap.sh
 # Master bootstrap script voor het DBF Homelab
-#
-# Gebruik:
-#   ./bootstrap.sh --full         Alles installen (verse Pi)
-#   ./bootstrap.sh --azure-only   Alleen Azure deployen
-#   ./bootstrap.sh --k3s-only     Alleen K3s apps deployen
 # ============================================================
 
 set -e
@@ -27,7 +22,7 @@ load_config() {
     else
         # Eerste keer draaien: Vraag de gebruiker om een naam
         echo -e "${GEEL}Welkom bij de DBF Homelab Installer!${RESET}"
-        read -p "Hoe wil je de projectmap noemen? [Standaard: homelab]: " chosen_name
+        read -p "Hoe wil je de projectmap noemen? [Standaard: homelab]: " chosen_name < /dev/tty
         HOMELAB_NAME=${chosen_name:-homelab}
         echo "HOMELAB_NAME=$HOMELAB_NAME" > "$CONFIG_FILE"
         export HOMELAB_NAME
@@ -111,7 +106,7 @@ echo ""
 if [ "$1" == "--full" ] || [ "$1" == "--azure-only" ] || [ "$1" == "--k3s-only" ] || [ "$1" == "--destroy-all" ]; then
     MODUS=$1
 else
-    read -p "Keuze (1/2/3/4): " keuze
+    read -p "Keuze (1/2/3/4): " keuze < /dev/tty
     case $keuze in
         1) MODUS="--full" ;;
         2) MODUS="--azure-only" ;;
@@ -177,14 +172,14 @@ fase_1() {
         echo "  1) Ik log in met een link (eigen account)"
         echo "  2) Ik gebruik een Auth Key (gekregen van beheerder)"
         echo "  3) Tailscale nu overslaan (doe ik later zelf)"
-        read -p "Keuze (1/2/3): " ts_keuze
+        read -p "Keuze (1/2/3): " ts_keuze < /dev/tty
         case $ts_keuze in
             1)
                 sudo tailscale up
                 log_ok "Tailscale verbonden via account"
                 ;;
             2)
-                read -p "Plak hier je Auth Key: " ts_key
+                read -p "Plak hier je Auth Key: " ts_key < /dev/tty
                 sudo tailscale up --authkey="$ts_key"
                 log_ok "Tailscale verbonden via Auth Key"
                 ;;
@@ -241,11 +236,11 @@ fase_2() {
 # === Homelab Aliases ===
 export HOMELAB_NAME="$HOMELAB_NAME"
 export HOMELAB_DIR="$HOMELAB_DIR"
-alias tfazure='cd $HOMELAB_DIR && source setup_env.sh'
-alias k3sdeploy='ansible-playbook $HOMELAB_DIR/playbooks/playbook_k3s_homelab.yml'
-alias azuredeploy='ansible-playbook $HOMELAB_DIR/playbooks/playbook_azure_webservers.yml -i $HOMELAB_DIR/inventory_azure.yml'
-alias deployall='bash $HOMELAB_DIR/deploy_all.sh'
-alias destroyall='bash $HOMELAB_DIR/destroy_all.sh'
+alias tfazure='cd \$HOMELAB_DIR && source setup_env.sh'
+alias k3sdeploy='ansible-playbook \$HOMELAB_DIR/playbooks/playbook_k3s_homelab.yml'
+alias azuredeploy='ansible-playbook \$HOMELAB_DIR/playbooks/playbook_azure_webservers.yml -i \$HOMELAB_DIR/inventory_azure.yml'
+alias deployall='bash \$HOMELAB_DIR/deploy_all.sh'
+alias destroyall='bash \$HOMELAB_DIR/destroy_all.sh'
 EOF
         log_ok "Aliases toegevoegd aan .bashrc"
     else
@@ -287,10 +282,10 @@ fase_4() {
     echo "  1) Uit een bestaand .sh bestand"
     echo "  2) Handmatig invoeren"
     echo ""
-    read -p "Keuze (1/2): " cred_keuze
+    read -p "Keuze (1/2): " cred_keuze < /dev/tty
 
     if [ "$cred_keuze" == "1" ]; then
-        read -p "Volledig pad naar je credentials bestand (bijv. ~/homelab/azure/setup_env.sh): " cred_pad
+        read -p "Volledig pad naar je credentials bestand (bijv. ~/homelab/setup_env.sh): " cred_pad < /dev/tty
         cred_pad="${cred_pad/#\~/$HOME}"  # ~ omzetten naar echte path
         if [ ! -f "$cred_pad" ]; then
             log_fout "Bestand niet gevonden: $cred_pad"
@@ -300,10 +295,10 @@ fase_4() {
 
     elif [ "$cred_keuze" == "2" ]; then
         echo "Voer je Azure credentials in (input wordt niet getoond):"
-        read -sp "  ARM_CLIENT_ID:       " ARM_CLIENT_ID;       echo ""
-        read -sp "  ARM_CLIENT_SECRET:   " ARM_CLIENT_SECRET;   echo ""
-        read -sp "  ARM_TENANT_ID:       " ARM_TENANT_ID;       echo ""
-        read -sp "  ARM_SUBSCRIPTION_ID: " ARM_SUBSCRIPTION_ID; echo ""
+        read -sp "  ARM_CLIENT_ID:       " ARM_CLIENT_ID < /dev/tty;       echo ""
+        read -sp "  ARM_CLIENT_SECRET:   " ARM_CLIENT_SECRET < /dev/tty;   echo ""
+        read -sp "  ARM_TENANT_ID:       " ARM_TENANT_ID < /dev/tty;       echo ""
+        read -sp "  ARM_SUBSCRIPTION_ID: " ARM_SUBSCRIPTION_ID < /dev/tty; echo ""
         export ARM_CLIENT_ID ARM_CLIENT_SECRET ARM_TENANT_ID ARM_SUBSCRIPTION_ID
         log_ok "Credentials handmatig ingesteld"
     else
@@ -315,20 +310,22 @@ fase_4() {
     echo "Tailscale Auth Key voor Azure VMs:"
     echo "  1) Laad uit omgevingsvariabele (TAILSCALE_AUTHKEY)"
     echo "  2) Handmatig invoeren"
-    read -p "Keuze (1/2): " ts_keuze
+    read -p "Keuze (1/2): " ts_keuze < /dev/tty
     if [ "$ts_keuze" == "1" ]; then
         if [ -z "$TAILSCALE_AUTHKEY" ]; then
             log_fout "TAILSCALE_AUTHKEY is niet ingesteld als omgevingsvariabele."
         fi
         log_ok "Tailscale auth key geladen uit omgevingsvariabele."
     else
-        read -sp "  Tailscale Auth Key: " TAILSCALE_AUTHKEY
+        read -sp "  Tailscale Auth Key: " TAILSCALE_AUTHKEY < /dev/tty
         echo ""
         log_ok "Tailscale auth key handmatig ingesteld."
     fi
 
     # --- Terraform init + apply ---
-    log_stap "Naar homelab map gaan..."
+    log_stap "Klaar voor Azure deployment!"
+    read -p "Druk op Enter om Terraform te starten..." < /dev/tty
+
     cd "$HOMELAB_DIR"
 
     log_stap "Terraform initialiseren..."
@@ -358,12 +355,12 @@ all:
         webserver-0:
           ansible_host: $IP_0
           ansible_user: adminuser
-          ansible_ssh_private_key_file: ~/homelab/azure/id_rsa.pem
+          ansible_ssh_private_key_file: \$HOMELAB_DIR/id_rsa.pem
           ansible_ssh_common_args: '-o StrictHostKeyChecking=no'
         webserver-1:
           ansible_host: $IP_1
           ansible_user: adminuser
-          ansible_ssh_private_key_file: ~/homelab/azure/id_rsa.pem
+          ansible_ssh_private_key_file: \$HOMELAB_DIR/id_rsa.pem
           ansible_ssh_common_args: '-o StrictHostKeyChecking=no'
 EOF
     log_ok "Inventory bijgewerkt"
@@ -394,8 +391,8 @@ EOF
     echo "=============================================="
     echo "  Azure Deploy Compleet!"
     echo "=============================================="
-    echo "  Webserver 0: http://$IP_0"
-    echo "  Webserver 1: http://$IP_1"
+    echo "  Webserver 0: http://\$IP_0"
+    echo "  Webserver 1: http://\$IP_1"
     echo "=============================================="
 }
 

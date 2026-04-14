@@ -19,6 +19,7 @@ fi
 
 PLAYBOOKS_DIR="$HOMELAB_DIR/playbooks"
 INVENTORY="$HOMELAB_DIR/inventory_azure.yml"
+AZURE_DIR="$HOMELAB_DIR"
 
 # Kleuren
 GROEN='\033[0;32m'
@@ -35,7 +36,7 @@ echo "  2) Alleen Azure Configuratie (Nginx/Tailscale)"
 echo "  3) Alleen Lokale K3s Services (Homer/Portainer)"
 echo "  4) VOLLEDIGE Deployment (Azure + K3s)"
 echo ""
-read -p "Keuze (1/2/3/4): " keuze
+read -p "Keuze (1/2/3/4): " keuze < /dev/tty
 
 # --- Helper: Azure credentials laden ---
 load_env() {
@@ -95,7 +96,7 @@ configure_azure() {
 
     # Auth Key vragen
     if [ -z "$TAILSCALE_AUTHKEY" ]; then
-        read -sp "Voer Tailscale Auth Key in: " TAILSCALE_AUTHKEY
+        read -sp "Voer Tailscale Auth Key in: " TAILSCALE_AUTHKEY < /dev/tty
         echo ""
     fi
 
