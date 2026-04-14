@@ -30,17 +30,31 @@
   tasks:
 
     # ============================================================
-    # SECTIE 1: HELM REPOSITORIES
+    # SECTIE 1: HELM REPOSITORIES (Robuust hersteld)
     # ============================================================
-    - name: Helm repositories toevoegen
+    - name: Oude bjw-s repo verwijderen (voor schone lei)
+      command: helm repo remove bjw-s
+      ignore_errors: true
+
+    - name: Portainer Helm repo
+      command: helm repo add portainer https://portainer.github.io/k8s/
+      ignore_errors: true
+
+    - name: Monitoring Helm repos
       shell: |
-        helm repo add portainer https://portainer.github.io/k8s/
         helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
         helm repo add grafana https://grafana.github.io/helm-charts
-        helm repo add bjw-s https://bjw-s.github.io/helm-charts/
-        helm repo update
-      ignore_errors: false
-    # ============================================================
+      ignore_errors: true
+
+    - name: Bjw-s Helm repo toevoegen
+      command: helm repo add bjw-s https://bjw-s.github.io/helm-charts/
+      register: bjw_repo_result
+      until: bjw_repo_result.rc == 0
+      retries: 3
+      delay: 5
+
+    - name: Helm repositories verversen
+      command: helm repo update
 
     # ============================================================
     # SECTIE 2: NAMESPACES
