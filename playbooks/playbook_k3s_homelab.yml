@@ -4,23 +4,30 @@
   connection: local
   become: false
   vars:
-    kubeconfig: /home/pi/.kube/config
-    pi_ip: "192.168.1.133"
+    kubeconfig: "{{ ansible_env.HOME }}/.kube/config"
+    pi_ip: "{{ ansible_host | default('localhost') }}"
     webserver_0_ip: "Nog niet gedeployed"
     webserver_1_ip: "Nog niet gedeployed"
 
   pre_tasks:
+    - name: Controleren of Kubeconfig bestaat
+      stat:
+        path: "{{ kubeconfig }}"
+      register: kube_file
+
     - name: Controleren of Helm geinstalleerd is
       command: helm version
       changed_when: false
       register: helm_check
       failed_when: helm_check.rc != 0
+      when: kube_file.stat.exists
 
     - name: Controleren of K3s bereikbaar is
       command: kubectl get nodes
       environment:
         KUBECONFIG: "{{ kubeconfig }}"
       changed_when: false
+      when: kube_file.stat.exists
 
   tasks:
 

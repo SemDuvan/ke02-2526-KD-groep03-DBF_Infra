@@ -224,14 +224,14 @@ check_dependencies() {
     fi
     
     # Kubeconfig check (vóór k3s apps)
-    if [ ! -f ~/.kube/config ] && [ -f /etc/rancher/k3s/k3s.yaml ]; then
+    if [ ! -f "$HOME/.kube/config" ] && [ -f /etc/rancher/k3s/k3s.yaml ]; then
         log_stap "Kubeconfig herstellen..."
-        mkdir -p ~/.kube
-        sudo cp /etc/rancher/k3s/k3s.yaml ~/.kube/config
-        sudo chown $(id -u):$(id -g) ~/.kube/config
-        sudo chmod 600 ~/.kube/config
+        mkdir -p "$HOME/.kube"
+        sudo cp /etc/rancher/k3s/k3s.yaml "$HOME/.kube/config"
+        sudo chown $(id -u):$(id -g) "$HOME/.kube/config"
+        sudo chmod 600 "$HOME/.kube/config"
     fi
-    export KUBECONFIG=~/.kube/config
+    export KUBECONFIG="$HOME/.kube/config"
     log_ok "Basis afhankelijkheden zijn OK"
 }
 
@@ -254,17 +254,17 @@ fase_2() {
     fi
 
     log_stap "Kubeconfig instellen..."
-    mkdir -p ~/.kube
-    sudo cp /etc/rancher/k3s/k3s.yaml ~/.kube/config 2>/dev/null || true
-    sudo chown $(id -u):$(id -g) ~/.kube/config 2>/dev/null || true
-    sudo chmod 600 ~/.kube/config 2>/dev/null || true
-    export KUBECONFIG=~/.kube/config
+    mkdir -p "$HOME/.kube"
+    sudo cp /etc/rancher/k3s/k3s.yaml "$HOME/.kube/config" 2>/dev/null || true
+    sudo chown $(id -u):$(id -g) "$HOME/.kube/config" 2>/dev/null || true
+    sudo chmod 600 "$HOME/.kube/config" 2>/dev/null || true
+    export KUBECONFIG="$HOME/.kube/config"
     log_ok "Kubeconfig ingesteld"
 
     # --- Wachten tot K3s echt klaar is ---
     log_stap "Wachten tot K3s node status 'Ready' is..."
     COUNT=0
-    while ! kubectl get nodes 2>/dev/null | grep -q "Ready"; do
+    while ! kubectl --kubeconfig "$HOME/.kube/config" get nodes 2>/dev/null | grep -q "Ready"; do
         sleep 2
         COUNT=$((COUNT + 1))
         if [ $COUNT -gt 60 ]; then
