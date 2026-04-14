@@ -23,9 +23,7 @@
       when: kube_file.stat.exists
 
     - name: Controleren of K3s bereikbaar is
-      command: kubectl get nodes
-      environment:
-        KUBECONFIG: "{{ kubeconfig }}"
+      command: "kubectl --kubeconfig {{ kubeconfig }} get nodes"
       changed_when: false
       when: kube_file.stat.exists
 
@@ -36,13 +34,11 @@
     # ============================================================
     - name: Helm repositories toevoegen
       shell: |
-        helm repo add portainer https://portainer.github.io/k8s/
-        helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
-        helm repo add grafana https://grafana.github.io/helm-charts
-        helm repo add bjw-s https://bjw-s.github.io/helm-charts/
-        helm repo update
-      environment:
-        KUBECONFIG: "{{ kubeconfig }}"
+        helm --kubeconfig {{ kubeconfig }} repo add portainer https://portainer.github.io/k8s/
+        helm --kubeconfig {{ kubeconfig }} repo add prometheus-community https://prometheus-community.github.io/helm-charts
+        helm --kubeconfig {{ kubeconfig }} repo add grafana https://grafana.github.io/helm-charts
+        helm --kubeconfig {{ kubeconfig }} repo add bjw-s https://bjw-s.github.io/helm-charts/
+        helm --kubeconfig {{ kubeconfig }} repo update
       ignore_errors: true
 
     # ============================================================
@@ -50,12 +46,10 @@
     # ============================================================
     - name: Namespaces aanmaken
       shell: |
-        kubectl create namespace portainer --dry-run=client -o yaml | kubectl apply -f -
-        kubectl create namespace monitoring --dry-run=client -o yaml | kubectl apply -f -
-        kubectl create namespace uptime-kuma --dry-run=client -o yaml | kubectl apply -f -
-        kubectl create namespace homer --dry-run=client -o yaml | kubectl apply -f -
-      environment:
-        KUBECONFIG: "{{ kubeconfig }}"
+        kubectl --kubeconfig {{ kubeconfig }} create namespace portainer --dry-run=client -o yaml | kubectl --kubeconfig {{ kubeconfig }} apply -f -
+        kubectl --kubeconfig {{ kubeconfig }} create namespace monitoring --dry-run=client -o yaml | kubectl --kubeconfig {{ kubeconfig }} apply -f -
+        kubectl --kubeconfig {{ kubeconfig }} create namespace uptime-kuma --dry-run=client -o yaml | kubectl --kubeconfig {{ kubeconfig }} apply -f -
+        kubectl --kubeconfig {{ kubeconfig }} create namespace homer --dry-run=client -o yaml | kubectl --kubeconfig {{ kubeconfig }} apply -f -
 
     # ============================================================
     # SECTIE 3: APPLICATIES INSTALLEREN
@@ -63,17 +57,15 @@
 
     - name: Portainer installeren
       shell: |
-        helm upgrade --install portainer portainer/portainer \
+        helm --kubeconfig {{ kubeconfig }} upgrade --install portainer portainer/portainer \
           --namespace portainer \
           --set service.type=NodePort \
           --set service.nodePort=30777 \
           --set tls.force=false
-      environment:
-        KUBECONFIG: "{{ kubeconfig }}"
 
     - name: Prometheus installeren
       shell: |
-        helm upgrade --install prometheus prometheus-community/prometheus \
+        helm --kubeconfig {{ kubeconfig }} upgrade --install prometheus prometheus-community/prometheus \
           --namespace monitoring \
           --set server.service.type=NodePort \
           --set server.service.nodePort=30090 \
@@ -82,24 +74,20 @@
           --set alertmanager.enabled=false \
           --set pushgateway.enabled=false \
           --set kube-state-metrics.enabled=false
-      environment:
-        KUBECONFIG: "{{ kubeconfig }}"
 
     - name: Grafana installeren
       shell: |
-        helm upgrade --install grafana grafana/grafana \
+        helm --kubeconfig {{ kubeconfig }} upgrade --install grafana grafana/grafana \
           --namespace monitoring \
           --set service.type=NodePort \
           --set service.nodePort=30030 \
           --set resources.requests.memory=64Mi \
           --set resources.limits.memory=128Mi \
           --set adminPassword=admin
-      environment:
-        KUBECONFIG: "{{ kubeconfig }}"
 
     - name: Uptime Kuma installeren (met bjw-s app-template)
       shell: |
-        helm upgrade --install uptime-kuma bjw-s/app-template \
+        helm --kubeconfig {{ kubeconfig }} upgrade --install uptime-kuma bjw-s/app-template \
           --namespace uptime-kuma \
           --set controllers.main.containers.main.image.repository=louislam/uptime-kuma \
           --set controllers.main.containers.main.image.tag=latest \
@@ -110,8 +98,6 @@
           --set persistence.config.type=persistentVolumeClaim \
           --set persistence.config.size=1Gi \
           --set persistence.config.accessMode=ReadWriteOnce
-      environment:
-        KUBECONFIG: "{{ kubeconfig }}"
 
     - name: Homer ConfigMap genereren en aanmaken
       template:
@@ -121,34 +107,18 @@
       tags: [homer, dashboard]
 
     - name: Homer ConfigMap toepassen op k3s
-      shell: kubectl apply -f /tmp/homer-config-rendered.yml
-      environment:
-        KUBECONFIG: "{{ kubeconfig }}"
+      shell: "kubectl --kubeconfig {{ kubeconfig }} apply -f /tmp/homer-config-rendered.yml"
       tags: [homer, dashboard]
 
     - name: Homer deployen
-      shell: kubectl apply -f "{{ playbook_dir }}/../manifests/homer.yml"
-      environment:
-        KUBECONFIG: "{{ kubeconfig }}"
+      shell: "kubectl --kubeconfig {{ kubeconfig }} apply -f {{ playbook_dir }}/../manifests/homer.yml"
       tags: [homer, dashboard]
 
     # ============================================================
     # SECTIE 4: STATUS & VERIFICATIE
     # ============================================================
-    - name: Wachten op Portainer (max 2 min)
-      uri:
-        url: "http://{{ pi_ip }}:30777"
-        status_code: 200
-      register: portainer_check
-      until: portainer_check.status == 200
-      retries: 12
-      delay: 10
-      ignore_errors: true
-
     - name: Overzicht van alle pods
-      shell: kubectl get pods -A
-      environment:
-        KUBECONFIG: "{{ kubeconfig }}"
+      shell: "kubectl --kubeconfig {{ kubeconfig }} get pods -A"
       register: pods_output
 
     - name: Toon pods
