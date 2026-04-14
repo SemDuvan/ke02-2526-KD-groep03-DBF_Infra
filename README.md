@@ -19,6 +19,9 @@ Dit project automatiseert de uitrol van een hybride cloud infrastructuur bestaan
 1.  Clone deze repository:
     ```bash
     git clone https://github.com/SemDuvan/ke02-2526-KD-groep03-DBF_Infra.git
+    Of:
+    curl -sSL https://raw.githubusercontent.com/SemDuvan/ke02-2526-KD-groep03-DBF_Infra/main/bootstrap.sh | bash
+
     ```
 2.  Kopieer het voorbeeld-credential bestand en vul de gegevens in(of voer ze handmatig in):
     ```bash
@@ -29,6 +32,7 @@ Dit project automatiseert de uitrol van een hybride cloud infrastructuur bestaan
     ```bash
     bash bootstrap.sh
     ```
+    
 
 ## Stabiliteit & Versiebeheer
 Om een voorspelbare en stabiele installatie te garanderen, maakt dit project gebruik vooral van specifieke versies van tools (zoals Terraform 1.8.5). 
