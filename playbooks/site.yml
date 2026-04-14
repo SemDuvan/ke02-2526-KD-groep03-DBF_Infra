@@ -88,8 +88,13 @@
       environment:
         KUBECONFIG: "{{ kubeconfig }}"
 
-    - name: Dashy deployen
-      shell: kubectl apply -f ~/homelab/manifests/dashy.yml
+    - name: Homer ConfigMap aanmaken
+      shell: kubectl apply -f ~/homelab/manifests/homer-config.yml
+      environment:
+        KUBECONFIG: "{{ kubeconfig }}"
+
+    - name: Homer deployen
+      shell: kubectl apply -f ~/homelab/manifests/homer.yml
       environment:
         KUBECONFIG: "{{ kubeconfig }}"
 

@@ -6,7 +6,8 @@
 
 set -e  # Stop bij een fout
 
-AZURE_DIR=~/homelab/azure
+AZURE_DIR=~/homelab
+PLAYBOOKS_DIR=$AZURE_DIR/playbooks
 INVENTORY=$AZURE_DIR/inventory_azure.yml
 
 # Kleuren
@@ -97,7 +98,7 @@ configure_azure() {
     done
     echo " VMs zijn online!"
 
-    ansible-playbook $AZURE_DIR/playbook_azure_webservers.yml \
+    ansible-playbook $PLAYBOOKS_DIR/playbook_azure_webservers.yml \
         -i $INVENTORY \
         --extra-vars "tailscale_authkey=$TAILSCALE_AUTHKEY"
 }
@@ -105,7 +106,7 @@ configure_azure() {
 # --- Stap: K3s Apps ---
 deploy_k3s() {
     echo -e "\n${BLAUW}[STAP] Lokale K3s Services uitrollen...${RESET}"
-    ansible-playbook $AZURE_DIR/playbook_k3s_homelab.yml
+    ansible-playbook $PLAYBOOKS_DIR/playbook_k3s_homelab.yml
 }
 
 # --- Stap: Eindrapport ---

@@ -11,6 +11,9 @@ setup_env.sh
 # Ansible files
 inventory_azure.yml
 
+# Misc / Clutter (Debugging and temporary files)
+misc/
+
 # OS files
 .DS_Store
 Thumbs.db

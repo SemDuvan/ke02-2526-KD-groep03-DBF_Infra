@@ -18,7 +18,9 @@ ROOD='\033[0;31m'
 BLAUW='\033[0;34m'
 RESET='\033[0m'
 
-HOMELAB_DIR=~/homelab/azure
+HOMELAB_DIR=~/homelab
+PLAYBOOKS_DIR=$HOMELAB_DIR/playbooks
+MANIFESTS_DIR=$HOMELAB_DIR/manifests
 
 log_stap()  { echo -e "\n${BLAUW}[STAP]${RESET} $1"; }
 log_ok()    { echo -e "${GROEN}[OK]${RESET} $1"; }
@@ -169,11 +171,11 @@ fase_2() {
         cat >> ~/.bashrc << 'EOF'
 
 # === Homelab Aliases ===
-alias tfazure='cd ~/homelab/azure && source setup_env.sh'
-alias k3sdeploy='ansible-playbook ~/homelab/azure/playbook_k3s_homelab.yml'
-alias azuredeploy='ansible-playbook ~/homelab/azure/playbook_azure_webservers.yml -i ~/homelab/azure/inventory_azure.yml'
-alias deployall='bash ~/homelab/azure/deploy_all.sh'
-alias destroyall='bash ~/homelab/azure/destroy_all.sh'
+alias tfazure='cd ~/homelab && source setup_env.sh'
+alias k3sdeploy='ansible-playbook ~/homelab/playbooks/playbook_k3s_homelab.yml'
+alias azuredeploy='ansible-playbook ~/homelab/playbooks/playbook_azure_webservers.yml -i ~/homelab/inventory_azure.yml'
+alias deployall='bash ~/homelab/deploy_all.sh'
+alias destroyall='bash ~/homelab/destroy_all.sh'
 EOF
         log_ok "Aliases toegevoegd aan .bashrc"
     else
@@ -191,12 +193,12 @@ fase_3() {
     echo "  (Portainer, Homer, Grafana, Uptime Kuma)"
     echo "=============================================="
 
-    if [ ! -f "$HOMELAB_DIR/playbook_k3s_homelab.yml" ]; then
-        log_fout "Bestand niet gevonden: $HOMELAB_DIR/playbook_k3s_homelab.yml"
+    if [ ! -f "$PLAYBOOKS_DIR/playbook_k3s_homelab.yml" ]; then
+        log_fout "Bestand niet gevonden: $PLAYBOOKS_DIR/playbook_k3s_homelab.yml"
     fi
 
     export KUBECONFIG=~/.kube/config
-    ansible-playbook "$HOMELAB_DIR/playbook_k3s_homelab.yml"
+    ansible-playbook "$PLAYBOOKS_DIR/playbook_k3s_homelab.yml"
     log_ok "K3s apps succesvol gedeployed"
 }
 
@@ -314,7 +316,7 @@ EOF
 
     # --- Ansible playbook uitvoeren ---
     log_stap "Nginx installeren via Ansible..."
-    ansible-playbook "$HOMELAB_DIR/playbook_azure_webservers.yml" \
+    ansible-playbook "$PLAYBOOKS_DIR/playbook_azure_webservers.yml" \
         -i "$HOMELAB_DIR/inventory_azure.yml"
     log_ok "Webservers geconfigureerd"
 
