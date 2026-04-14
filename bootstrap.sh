@@ -253,12 +253,15 @@ fase_2() {
     echo "=============================================="
 
     # --- K3s ---
-    log_stap "K3s controleren..."
-    if ! command -v k3s &>/dev/null; then
+    log_stap "K3s status controleren..."
+    K3S_ACTIVE=$(systemctl is-active k3s 2>/dev/null || echo "inactive")
+    
+    if ! command -v k3s &>/dev/null || [ "$K3S_ACTIVE" != "active" ]; then
+        log_stap "K3s is niet actief of ontbreekt. (Her)installeren..."
         curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="--disable traefik --disable servicelb" sh -
-        log_ok "K3s geinstalleerd"
+        log_ok "K3s (her)geinstalleerd en gestart"
     else
-        log_skip "K3s"
+        log_skip "K3s (is al actief)"
     fi
 
     log_stap "Kubeconfig instellen..."
