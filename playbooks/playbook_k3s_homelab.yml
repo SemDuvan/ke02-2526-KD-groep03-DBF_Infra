@@ -84,7 +84,10 @@
           --set service.main.ports.http.port=3001 \
           --set service.main.ports.http.nodePort=30031 \
           --set service.main.type=NodePort \
-          --set persistence.config.type=none
+          --set persistence.config.enabled=true \
+          --set persistence.config.type=persistentVolumeClaim \
+          --set persistence.config.size=1Gi \
+          --set persistence.config.accessMode=ReadWriteOnce
       environment:
         KUBECONFIG: "{{ kubeconfig }}"
 
