@@ -206,6 +206,36 @@ fase_1() {
 }
 
 # ============================================================
+# AFHANKELIJKHEDEN CHECK (Voor alle modi)
+# ============================================================
+check_dependencies() {
+    log_stap "Afhankelijkheden controleren..."
+    
+    # Ansible check
+    if ! command -v ansible &>/dev/null; then
+        log_stap "Ansible niet gevonden. Installeren..."
+        sudo apt-get update -qq && sudo apt-get install -y -qq ansible
+    fi
+    
+    # Helm check
+    if ! command -v helm &>/dev/null; then
+        log_stap "Helm niet gevonden. Installeren..."
+        curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+    fi
+    
+    # Kubeconfig check (vóór k3s apps)
+    if [ ! -f ~/.kube/config ] && [ -f /etc/rancher/k3s/k3s.yaml ]; then
+        log_stap "Kubeconfig herstellen..."
+        mkdir -p ~/.kube
+        sudo cp /etc/rancher/k3s/k3s.yaml ~/.kube/config
+        sudo chown $(id -u):$(id -g) ~/.kube/config
+        sudo chmod 600 ~/.kube/config
+    fi
+    export KUBECONFIG=~/.kube/config
+    log_ok "Basis afhankelijkheden zijn OK"
+}
+
+# ============================================================
 # FASE 2: K3S + HELM
 # ============================================================
 fase_2() {
@@ -219,18 +249,29 @@ fase_2() {
     if ! command -v k3s &>/dev/null; then
         curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="--disable traefik --disable servicelb" sh -
         log_ok "K3s geinstalleerd"
-        sleep 10  # Even wachten tot K3s volledig opstart
     else
         log_skip "K3s"
     fi
 
     log_stap "Kubeconfig instellen..."
     mkdir -p ~/.kube
-    sudo cp /etc/rancher/k3s/k3s.yaml ~/.kube/config
-    sudo chown $(id -u):$(id -g) ~/.kube/config
-    sudo chmod 600 ~/.kube/config
+    sudo cp /etc/rancher/k3s/k3s.yaml ~/.kube/config 2>/dev/null || true
+    sudo chown $(id -u):$(id -g) ~/.kube/config 2>/dev/null || true
+    sudo chmod 600 ~/.kube/config 2>/dev/null || true
     export KUBECONFIG=~/.kube/config
     log_ok "Kubeconfig ingesteld"
+
+    # --- Wachten tot K3s echt klaar is ---
+    log_stap "Wachten tot K3s node status 'Ready' is..."
+    COUNT=0
+    while ! kubectl get nodes 2>/dev/null | grep -q "Ready"; do
+        sleep 2
+        COUNT=$((COUNT + 1))
+        if [ $COUNT -gt 60 ]; then
+            log_fout "K3s startte niet op binnen 2 minuten."
+        fi
+    done
+    log_ok "K3s cluster is operationeel"
 
     # --- Helm ---
     log_stap "Helm controleren..."
@@ -271,12 +312,14 @@ fase_3() {
     echo "  (Portainer, Homer, Grafana, Uptime Kuma)"
     echo "=============================================="
 
+    check_dependencies
+    
     if [ ! -f "$PLAYBOOKS_DIR/playbook_k3s_homelab.yml" ]; then
         log_fout "Bestand niet gevonden: $PLAYBOOKS_DIR/playbook_k3s_homelab.yml"
     fi
 
     export KUBECONFIG=~/.kube/config
-    ansible-playbook "$PLAYBOOKS_DIR/playbook_k3s_homelab.yml"
+    ansible-playbook --inventory localhost, "$PLAYBOOKS_DIR/playbook_k3s_homelab.yml"
     log_ok "K3s apps succesvol gedeployed"
 }
 
@@ -289,6 +332,8 @@ fase_4() {
     echo "  FASE 4: Azure Cloud Deployen"
     echo "=============================================="
 
+    check_dependencies
+    
     # --- Credentials keuzescherm ---
     echo ""
     echo "Hoe wil je je Azure credentials laden?"

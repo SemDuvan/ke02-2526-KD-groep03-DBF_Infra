@@ -5,46 +5,62 @@
   become: false
   vars:
     kubeconfig: /home/pi/.kube/config
+    pi_ip: "192.168.1.133"
+    webserver_0_ip: "Nog niet gedeployed"
+    webserver_1_ip: "Nog niet gedeployed"
+
+  pre_tasks:
+    - name: Controleren of Helm geinstalleerd is
+      command: helm version
+      changed_when: false
+      register: helm_check
+      failed_when: helm_check.rc != 0
+
+    - name: Controleren of K3s bereikbaar is
+      command: kubectl get nodes
+      environment:
+        KUBECONFIG: "{{ kubeconfig }}"
+      changed_when: false
 
   tasks:
 
-    - name: Portainer Helm repo toevoegen
-      shell: helm repo add portainer https://portainer.github.io/k8s/ && helm repo update
+    # ============================================================
+    # SECTIE 1: HELM REPOSITORIES
+    # ============================================================
+    - name: Helm repositories toevoegen
+      shell: |
+        helm repo add portainer https://portainer.github.io/k8s/
+        helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+        helm repo add grafana https://grafana.github.io/helm-charts
+        helm repo add bjw-s https://bjw-s.github.io/helm-charts/
+        helm repo update
       environment:
         KUBECONFIG: "{{ kubeconfig }}"
       ignore_errors: true
+
+    # ============================================================
+    # SECTIE 2: NAMESPACES
+    # ============================================================
+    - name: Namespaces aanmaken
+      shell: |
+        kubectl create namespace portainer --dry-run=client -o yaml | kubectl apply -f -
+        kubectl create namespace monitoring --dry-run=client -o yaml | kubectl apply -f -
+        kubectl create namespace uptime-kuma --dry-run=client -o yaml | kubectl apply -f -
+        kubectl create namespace homer --dry-run=client -o yaml | kubectl apply -f -
+      environment:
+        KUBECONFIG: "{{ kubeconfig }}"
+
+    # ============================================================
+    # SECTIE 3: APPLICATIES INSTALLEREN
+    # ============================================================
 
     - name: Portainer installeren
       shell: |
         helm upgrade --install portainer portainer/portainer \
           --namespace portainer \
-          --create-namespace \
           --set service.type=NodePort \
           --set service.nodePort=30777 \
           --set tls.force=false
-      environment:
-        KUBECONFIG: "{{ kubeconfig }}"
-
-    - name: Prometheus Helm repo toevoegen
-      shell: helm repo add prometheus-community https://prometheus-community.github.io/helm-charts && helm repo update
-      environment:
-        KUBECONFIG: "{{ kubeconfig }}"
-      ignore_errors: true
-
-    - name: Grafana Helm repo toevoegen
-      shell: helm repo add grafana https://grafana.github.io/helm-charts && helm repo update
-      environment:
-        KUBECONFIG: "{{ kubeconfig }}"
-      ignore_errors: true
-
-    - name: Bjw-s Helm repo toevoegen
-      shell: helm repo add bjw-s https://bjw-s.github.io/helm-charts/ && helm repo update
-      environment:
-        KUBECONFIG: "{{ kubeconfig }}"
-      ignore_errors: true
-
-    - name: Monitoring namespace aanmaken
-      shell: kubectl create namespace monitoring --dry-run=client -o yaml | kubectl apply -f -
       environment:
         KUBECONFIG: "{{ kubeconfig }}"
 
@@ -78,7 +94,6 @@
       shell: |
         helm upgrade --install uptime-kuma bjw-s/app-template \
           --namespace uptime-kuma \
-          --create-namespace \
           --set controllers.main.containers.main.image.repository=louislam/uptime-kuma \
           --set controllers.main.containers.main.image.tag=latest \
           --set service.main.ports.http.port=3001 \
@@ -90,22 +105,6 @@
           --set persistence.config.accessMode=ReadWriteOnce
       environment:
         KUBECONFIG: "{{ kubeconfig }}"
-
-    - name: Wachten op Portainer (max 2 min)
-      uri:
-        url: "http://192.168.1.133:30777"
-        status_code: 200
-      register: portainer_check
-      until: portainer_check.status == 200
-      retries: 12
-      delay: 10
-      ignore_errors: true
-
-    - name: Homer namespace aanmaken
-      shell: kubectl create namespace homer --dry-run=client -o yaml | kubectl apply -f -
-      environment:
-        KUBECONFIG: "{{ kubeconfig }}"
-      tags: [homer, dashboard]
 
     - name: Homer ConfigMap genereren en aanmaken
       template:
@@ -125,6 +124,19 @@
       environment:
         KUBECONFIG: "{{ kubeconfig }}"
       tags: [homer, dashboard]
+
+    # ============================================================
+    # SECTIE 4: STATUS & VERIFICATIE
+    # ============================================================
+    - name: Wachten op Portainer (max 2 min)
+      uri:
+        url: "http://{{ pi_ip }}:30777"
+        status_code: 200
+      register: portainer_check
+      until: portainer_check.status == 200
+      retries: 12
+      delay: 10
+      ignore_errors: true
 
     - name: Overzicht van alle pods
       shell: kubectl get pods -A
