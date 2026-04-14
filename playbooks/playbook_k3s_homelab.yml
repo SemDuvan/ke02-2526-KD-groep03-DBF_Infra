@@ -34,12 +34,13 @@
     # ============================================================
     - name: Helm repositories toevoegen
       shell: |
-        helm --kubeconfig {{ kubeconfig }} repo add portainer https://portainer.github.io/k8s/
-        helm --kubeconfig {{ kubeconfig }} repo add prometheus-community https://prometheus-community.github.io/helm-charts
-        helm --kubeconfig {{ kubeconfig }} repo add grafana https://grafana.github.io/helm-charts
-        helm --kubeconfig {{ kubeconfig }} repo add bjw-s https://bjw-s.github.io/helm-charts/
-        helm --kubeconfig {{ kubeconfig }} repo update
-      ignore_errors: true
+        helm repo add portainer https://portainer.github.io/k8s/
+        helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+        helm repo add grafana https://grafana.github.io/helm-charts
+        helm repo add bjw-s https://bjw-s.github.io/helm-charts/
+        helm repo update
+      ignore_errors: false
+    # ============================================================
 
     # ============================================================
     # SECTIE 2: NAMESPACES
