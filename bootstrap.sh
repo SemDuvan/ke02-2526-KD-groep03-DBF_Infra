@@ -374,6 +374,16 @@ fase_4() {
         log_fout "Ongeldige keuze voor credentials"
     fi
 
+    # --- Resource Group Naam ---
+    if [ -z "$TF_VAR_resource_group_naam" ]; then
+        echo ""
+        read -p "Wat is de naam van de Azure Resource Group? [Standaard: ke02-2526-KD-groep03]: " rg_naam < /dev/tty
+        export TF_VAR_resource_group_naam="${rg_naam:-ke02-2526-KD-groep03}"
+        log_ok "Resource Group ingesteld op: $TF_VAR_resource_group_naam"
+    else
+        log_ok "Resource Group (geladen via config): $TF_VAR_resource_group_naam"
+    fi
+
     # --- Tailscale Auth Key ---
     echo ""
     echo "Tailscale Auth Key voor Azure VMs:"
