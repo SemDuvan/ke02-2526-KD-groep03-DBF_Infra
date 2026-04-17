@@ -474,11 +474,35 @@ EOF
 
     echo ""
     echo "=============================================="
-    echo "  Azure Deploy Compleet!"
+    echo "  Azure Deploy Fase Compleet!"
     echo "=============================================="
-    echo "  Webserver 0: http://$IP_0"
-    echo "  Webserver 1: http://$IP_1"
-    echo "=============================================="
+}
+
+# ============================================================
+# RAPPORTAGE
+# ============================================================
+show_report() {
+    cd "$HOMELAB_DIR"
+    IP_0=$(terraform output -raw webserver_0_ip 2>/dev/null || echo "Onbekend")
+    IP_1=$(terraform output -raw webserver_1_ip 2>/dev/null || echo "Onbekend")
+    TS_0=$(ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 -i "$HOMELAB_DIR/id_rsa.pem" adminuser@$IP_0 "tailscale ip -4" 2>/dev/null || echo "Niet opvraagbaar")
+    TS_1=$(ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 -i "$HOMELAB_DIR/id_rsa.pem" adminuser@$IP_1 "tailscale ip -4" 2>/dev/null || echo "Niet opvraagbaar")
+    PI_IP=$(hostname -I | awk '{print $1}')
+
+    echo -e "\n"
+    echo "================================================"
+    echo -e "         ${GROEN}HOMELAB DEPLOYMENT REPORT${RESET}"
+    echo "================================================"
+    echo -e "${GEEL}CLOUD INFRASTRUCTURE (Azure):${RESET}"
+    echo "  - Webserver 0: http://$IP_0 (Tailscale: $TS_0)"
+    echo "  - Webserver 1: http://$IP_1 (Tailscale: $TS_1)"
+    echo ""
+    echo -e "${GEEL}LOCAL SERVICES (Edge - $PI_IP):${RESET}"
+    echo "  - Homer Dashboard: http://$PI_IP:30080"
+    echo "  - Portainer:       http://$PI_IP:30777"
+    echo "  - Uptime Kuma:     http://$PI_IP:30031"
+    echo "  - Grafana:         http://$PI_IP:30030"
+    echo "================================================"
 }
 
 # ============================================================
@@ -494,12 +518,15 @@ case $MODUS in
         fase_2
         fase_3
         fase_4
+        show_report
         ;;
     --azure-only)
         fase_4
+        show_report
         ;;
     --k3s-only)
         fase_3
+        show_report
         ;;
     --destroy-all)
         bash "$HOMELAB_DIR/destroy_all.sh"
@@ -511,3 +538,4 @@ echo "=============================================="
 echo "  Bootstrap voltooid!"
 echo "  Herstart terminal of: source ~/.bashrc"
 echo "=============================================="
+
