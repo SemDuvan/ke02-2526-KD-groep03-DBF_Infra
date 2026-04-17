@@ -21,11 +21,54 @@
         update_cache: yes
         cache_valid_time: 3600
 
-    # --- Stap 2: Nginx installeren ---
-    - name: Nginx installeren
+    # --- Stap 2: Nginx & SSL configureren ---
+    - name: Nginx en OpenSSL installeren
       apt:
-        name: nginx
+        name: 
+          - nginx
+          - openssl
         state: present
+
+    - name: Genereer Self-Signed SSL Certificaat (Voor 365 dagen)
+      command: >
+        openssl req -x509 -nodes -days 365 
+        -newkey rsa:2048 
+        -keyout /etc/ssl/private/nginx-selfsigned.key 
+        -out /etc/ssl/certs/nginx-selfsigned.crt 
+        -subj "/C=NL/ST=Noord-Brabant/L=Eindhoven/O=DBF Homelab/CN={{ ansible_host }}"
+      args:
+        creates: /etc/ssl/certs/nginx-selfsigned.crt
+
+    - name: Nginx Configuratie pushen (met HTTPS en Port 80 Redirect)
+      copy:
+        dest: /etc/nginx/sites-available/default
+        content: |
+          server {
+              listen 80 default_server;
+              listen [::]:80 default_server;
+              server_name _;
+              
+              # Forceer HTTP verkeer direct door naar HTTPS
+              return 301 https://$host$request_uri;
+          }
+
+          server {
+              listen 443 ssl default_server;
+              listen [::]:443 ssl default_server;
+
+              ssl_certificate /etc/ssl/certs/nginx-selfsigned.crt;
+              ssl_certificate_key /etc/ssl/private/nginx-selfsigned.key;
+
+              root /var/www/html;
+              index index.html index.htm;
+
+              server_name _;
+
+              location / {
+                  try_files $uri $uri/ =404;
+              }
+          }
+      notify: Restart Nginx
 
     - name: Nginx starten en activeren bij boot
       systemd:
@@ -115,11 +158,17 @@
       debug:
         msg: "Nginx status op {{ inventory_hostname }}: {{ nginx_status.stdout }}"
 
-    # --- Stap 6: Eindrapport ---
     - name: Webserver bereikbaar op
       debug:
         msg:
           - "Installatie klaar op {{ inventory_hostname }}"
-          - "Publiek web: http://{{ ansible_host }}"
+          - "Publiek web (Standaard HTTPS): https://{{ ansible_host }}"
+          - "Let op: Geef 'Doorgaan naar onveilig' aan in je browser (Self-signed certificaat)"
           - "Tailscale IP: {{ tailscale_ip.stdout | default('n.v.t.') }}"
           - "SSH via Pi (check of de route naar key goed is): ssh -i /home/pi/homelab/id_rsa.pem adminuser@{{ tailscale_ip.stdout | default(ansible_host) }}"
+
+  handlers:
+    - name: Restart Nginx
+      systemd:
+        name: nginx
+        state: restarted
